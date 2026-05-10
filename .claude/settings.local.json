@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Storage\\\\Antigravity\\\\appx\\\\marketing02\" -Force)",
+      "Bash(Select-Object Name, Mode, LastWriteTime)",
+      "Bash(Format-Table)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Storage\\\\Antigravity\\\\appx\\\\marketing02\\\\src\" -Recurse -File | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Storage\\\\Antigravity\\\\appx\\\\marketing02\\\\\", \"\"\\) })",
+      "Bash(npm install *)",
+      "Bash(curl *)",
+      "PowerShell(Invoke-WebRequest -Uri \"https://github.com/higgsfield-ai/cli/releases/download/v0.1.35/hf_0.1.35_windows_amd64.tar.gz\" -OutFile \"C:\\\\temp\\\\hf.tar.gz\" -UseBasicParsing; Write-Host \"Downloaded: $\\(\\(Get-Item 'C:\\\\temp\\\\hf.tar.gz'\\).Length\\) bytes\")",
+      "PowerShell(New-Item *)",
+      "PowerShell(npx skills add higgsfield-ai/skills 2>&1)",
+      "PowerShell(higgsfield *)",
+      "Bash(higgsfield generate *)",
+      "Bash(hf generate *)"
+    ]
+  },
+  "enabledPlugins": {
+    "skill-creator@claude-plugins-official": true
+  }
+}
