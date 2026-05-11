@@ -40,3 +40,6 @@ __screenshots__/
 
 # Runtime data
 history.json
+
+# Secrets
+.env
