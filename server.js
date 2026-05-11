@@ -18,7 +18,7 @@ async function readHistory() {
 
 async function appendHistory(entry) {
   const history = await readHistory()
-  history.unshift(entry)
+  history.unshift({ rating: 0, note: '', ...entry })
   await writeFile(HISTORY_FILE, JSON.stringify(history.slice(0, 200), null, 2))
 }
 
@@ -45,6 +45,27 @@ app.get('/health', (req, res) => {
 
 app.get('/api/history', async (req, res) => {
   res.json(await readHistory())
+})
+
+app.delete('/api/history/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  const history = await readHistory()
+  const next = history.filter((e) => e.id !== id)
+  if (next.length === history.length) return res.status(404).json({ error: 'not found' })
+  await writeFile(HISTORY_FILE, JSON.stringify(next, null, 2))
+  res.json({ ok: true })
+})
+
+app.patch('/api/history/:id', express.json(), async (req, res) => {
+  const id = Number(req.params.id)
+  const { rating, note } = req.body
+  const history = await readHistory()
+  const entry = history.find((e) => e.id === id)
+  if (!entry) return res.status(404).json({ error: 'not found' })
+  if (rating !== undefined) entry.rating = rating
+  if (note !== undefined) entry.note = note
+  await writeFile(HISTORY_FILE, JSON.stringify(history, null, 2))
+  res.json(entry)
 })
 
 // POST /api/generate — multipart/form-data
