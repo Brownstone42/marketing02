@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const prompt = ref('')
 const model = ref('nano_banana_2')
@@ -7,9 +7,52 @@ const aspectRatio = ref('1:1')
 const loading = ref(false)
 const result = ref(null)
 const error = ref(null)
+const referenceFile = ref(null)
+const referencePreview = ref(null)
+const isDragOver = ref(false)
+const fileInput = ref(null)
+const history = ref([])
 
 const IMAGE_MODELS = ['nano_banana_2', 'nano_banana_pro']
 const isImageModel = computed(() => IMAGE_MODELS.includes(model.value))
+
+async function loadHistory() {
+  try {
+    const res = await fetch('/api/history')
+    if (res.ok) history.value = await res.json()
+  } catch {}
+}
+
+function loadFromHistory(entry) {
+  result.value = { result_url: entry.result_url }
+}
+
+onMounted(loadHistory)
+
+function setReferenceFile(file) {
+  if (!file || !file.type.startsWith('image/')) return
+  referenceFile.value = file
+  const reader = new FileReader()
+  reader.onload = (e) => (referencePreview.value = e.target.result)
+  reader.readAsDataURL(file)
+}
+
+function clearReference() {
+  referenceFile.value = null
+  referencePreview.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+function handleDrop(e) {
+  isDragOver.value = false
+  const file = e.dataTransfer.files[0]
+  if (file) setReferenceFile(file)
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0]
+  if (file) setReferenceFile(file)
+}
 
 async function generate() {
   if (!prompt.value.trim() || loading.value) return
@@ -18,19 +61,17 @@ async function generate() {
   error.value = null
 
   try {
-    const body = {
-      prompt: prompt.value.trim(),
-      model: model.value,
-      options: isImageModel.value ? { aspect_ratio: aspectRatio.value } : {},
-    }
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+    const fd = new FormData()
+    fd.append('prompt', prompt.value.trim())
+    fd.append('model', model.value)
+    if (isImageModel.value) fd.append('aspect_ratio', aspectRatio.value)
+    if (referenceFile.value) fd.append('image', referenceFile.value)
+
+    const res = await fetch('/api/generate', { method: 'POST', body: fd })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Generation failed')
     result.value = data.result
+    loadHistory()
   } catch (e) {
     error.value = e.message
   } finally {
@@ -40,8 +81,9 @@ async function generate() {
 
 function extractUrl(r) {
   if (typeof r === 'string' && r.startsWith('http')) return r
+  if (Array.isArray(r)) return extractUrl(r[0])
   if (r && typeof r === 'object') {
-    return r.url ?? r.output_url ?? r.download_url ?? r.image_url ?? r.video_url ?? null
+    return r.result_url ?? r.url ?? r.output_url ?? r.download_url ?? r.image_url ?? r.video_url ?? null
   }
   return null
 }
@@ -57,57 +99,93 @@ const rawResult = computed(() =>
 
 <template>
   <main>
-    <p class="eyebrow">higgsfield / generate</p>
+    <!-- Left: form panel -->
+    <div class="panel-left">
+      <p class="eyebrow">higgsfield / generate</p>
 
-    <form @submit.prevent="generate">
-      <div class="field">
-        <label for="prompt">PROMPT</label>
-        <textarea
-          id="prompt"
-          v-model="prompt"
-          placeholder="describe what to generate"
-          rows="5"
-          :disabled="loading"
-        />
-      </div>
+      <form @submit.prevent="generate">
+        <div class="field grow">
+          <label for="prompt">PROMPT</label>
+          <textarea
+            id="prompt"
+            v-model="prompt"
+            placeholder="describe what to generate"
+            :disabled="loading"
+          />
+        </div>
 
-      <div class="row">
         <div class="field">
-          <label for="model">MODEL</label>
-          <select id="model" v-model="model" :disabled="loading">
-            <option value="nano_banana_2">nano_banana_2</option>
-            <option value="nano_banana_pro">nano_banana_pro</option>
-            <option value="kling3_0">kling3_0</option>
-          </select>
+          <label>REFERENCE IMAGE</label>
+          <div
+            class="drop-zone"
+            :class="{ 'drag-over': isDragOver, 'has-image': referencePreview }"
+            @dragover.prevent="isDragOver = true"
+            @dragleave.prevent="isDragOver = false"
+            @drop.prevent="handleDrop"
+            @click="fileInput.click()"
+          >
+            <img v-if="referencePreview" :src="referencePreview" class="ref-preview" alt="reference" />
+            <span v-else class="drop-hint">drop image or click to browse</span>
+            <button v-if="referencePreview" type="button" class="clear-ref" @click.stop="clearReference">×</button>
+          </div>
+          <input ref="fileInput" type="file" accept="image/*" @change="handleFileSelect" hidden />
         </div>
 
-        <div v-if="isImageModel" class="field">
-          <label for="ratio">RATIO</label>
-          <select id="ratio" v-model="aspectRatio" :disabled="loading">
-            <option>1:1</option>
-            <option>16:9</option>
-            <option>9:16</option>
-            <option>4:3</option>
-          </select>
+        <div class="row">
+          <div class="field">
+            <label for="model">MODEL</label>
+            <select id="model" v-model="model" :disabled="loading">
+              <option value="nano_banana_2">nano_banana_2</option>
+              <option value="nano_banana_pro">nano_banana_pro</option>
+              <option value="kling3_0">kling3_0</option>
+            </select>
+          </div>
+          <div v-if="isImageModel" class="field">
+            <label for="ratio">RATIO</label>
+            <select id="ratio" v-model="aspectRatio" :disabled="loading">
+              <option>1:1</option>
+              <option>16:9</option>
+              <option>9:16</option>
+              <option>4:3</option>
+            </select>
+          </div>
         </div>
-      </div>
 
-      <button type="submit" :disabled="!prompt.trim() || loading">
-        <span>{{ loading ? 'generating' : 'generate' }}</span>
-        <span v-if="loading" class="blink">_</span>
-        <span v-else class="arrow">→</span>
-      </button>
-    </form>
+        <button type="submit" :disabled="!prompt.trim() || loading">
+          <span>{{ loading ? 'generating' : 'generate' }}</span>
+          <span v-if="loading" class="blink">_</span>
+          <span v-else class="arrow">→</span>
+        </button>
+      </form>
 
-    <div v-if="error" class="error">! {{ error }}</div>
-
-    <div v-if="resultUrl" class="output">
-      <video v-if="isVideo" :src="resultUrl" controls />
-      <img v-else :src="resultUrl" alt="result" />
-      <a :href="resultUrl" target="_blank" rel="noopener">open full size ↗</a>
+      <div v-if="error" class="error">! {{ error }}</div>
     </div>
 
-    <pre v-if="rawResult" class="output raw">{{ rawResult }}</pre>
+    <!-- Right: result panel -->
+    <div class="panel-right">
+      <div class="result-area">
+        <template v-if="resultUrl">
+          <video v-if="isVideo" :src="resultUrl" controls class="result-media" />
+          <img v-else :src="resultUrl" alt="result" class="result-media" />
+          <a :href="resultUrl" target="_blank" rel="noopener" class="open-link">open full size ↗</a>
+        </template>
+        <pre v-else-if="rawResult" class="raw-result">{{ rawResult }}</pre>
+        <span v-else class="empty-hint">{{ loading ? '' : '—' }}</span>
+      </div>
+
+      <div v-if="history.length" class="history-strip">
+        <button
+          v-for="entry in history"
+          :key="entry.id"
+          class="history-thumb"
+          :title="entry.prompt"
+          @click="loadFromHistory(entry)"
+        >
+          <img :src="entry.result_url" :alt="entry.prompt" />
+          <span class="history-model">{{ entry.model }}</span>
+        </button>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -120,184 +198,332 @@ const rawResult = computed(() =>
   padding: 0;
 }
 
-body {
+html, body {
+  height: 100%;
+  overflow: hidden;
   background: #f4f1eb;
   color: #1c1a16;
   font-family: 'Courier Prime', 'Courier New', monospace;
-  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 </style>
 
 <style scoped>
 main {
-  max-width: 580px;
-  margin: 0 auto;
-  padding: 72px 24px 96px;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Left panel ── */
+.panel-left {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 24px 20px;
+  border-right: 1px solid #ccc8bf;
+  overflow-y: auto;
 }
 
 .eyebrow {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: #7a7670;
   letter-spacing: 0.05em;
-  margin-bottom: 48px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 form {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 14px;
+  flex: 1;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
+}
+
+.field.grow {
+  flex: 1;
+  min-height: 0;
 }
 
 label {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   letter-spacing: 0.14em;
   color: #7a7670;
-}
-
-textarea,
-select {
-  font-family: 'Courier Prime', 'Courier New', monospace;
-  font-size: 0.95rem;
-  background: #f4f1eb;
-  color: #1c1a16;
-  border: 1px solid #ccc8bf;
-  padding: 10px 12px;
-  outline: none;
-  border-radius: 0;
-  width: 100%;
-  transition: border-color 0.12s;
-  appearance: none;
-  -webkit-appearance: none;
+  flex-shrink: 0;
 }
 
 textarea {
-  resize: vertical;
-  line-height: 1.65;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-size: 0.88rem;
+  background: #f4f1eb;
+  color: #1c1a16;
+  border: 1px solid #ccc8bf;
+  padding: 8px 10px;
+  outline: none;
+  border-radius: 0;
+  width: 100%;
+  resize: none;
+  line-height: 1.6;
+  flex: 1;
+  min-height: 0;
+  transition: border-color 0.12s;
 }
 
-textarea::placeholder {
-  color: #b4b0a8;
+textarea::placeholder { color: #b4b0a8; }
+textarea:focus { border-color: #1c1a16; }
+textarea:disabled { opacity: 0.45; cursor: not-allowed; }
+
+select {
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-size: 0.88rem;
+  background: #f4f1eb;
+  color: #1c1a16;
+  border: 1px solid #ccc8bf;
+  padding: 7px 10px;
+  outline: none;
+  border-radius: 0;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.12s;
 }
 
-textarea:focus,
-select:focus {
-  border-color: #1c1a16;
-}
-
-textarea:disabled,
-select:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+select:focus { border-color: #1c1a16; }
+select:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .row {
   display: flex;
-  gap: 16px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.row .field {
-  flex: 1;
-}
+.row .field { flex: 1; }
 
-button {
+button[type="submit"] {
   align-self: flex-start;
   font-family: 'Courier Prime', 'Courier New', monospace;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   background: transparent;
   color: #1c1a16;
   border: 1px solid #1c1a16;
-  padding: 9px 18px;
+  padding: 7px 16px;
   cursor: pointer;
   border-radius: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
 }
 
-button:hover:not(:disabled) {
+button[type="submit"]:hover:not(:disabled) {
   background: #1c1a16;
   color: #f4f1eb;
 }
 
-button:disabled {
-  opacity: 0.28;
-  cursor: not-allowed;
-}
+button[type="submit"]:disabled { opacity: 0.28; cursor: not-allowed; }
 
-.arrow {
-  transition: transform 0.12s;
-}
-
-button:hover:not(:disabled) .arrow {
-  transform: translateX(4px);
-}
+.arrow { transition: transform 0.12s; }
+button[type="submit"]:hover:not(:disabled) .arrow { transform: translateX(4px); }
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
-
-.blink {
-  animation: blink 1s step-end infinite;
-}
+.blink { animation: blink 1s step-end infinite; }
 
 .error {
-  margin-top: 28px;
-  padding-top: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid #c0392b;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #c0392b;
+  flex-shrink: 0;
 }
 
-.output {
-  margin-top: 44px;
+/* Drop zone */
+.drop-zone {
+  border: 1px dashed #ccc8bf;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.12s, background 0.12s;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: #1c1a16;
+  background: #eeeae0;
+}
+
+.drop-zone.has-image {
+  padding: 0;
+  border-style: solid;
+  height: auto;
+  max-height: 180px;
+}
+
+.drop-hint {
+  font-size: 0.75rem;
+  color: #b4b0a8;
+}
+
+.ref-preview {
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  display: block;
+  background: #e8e4dc;
+}
+
+.clear-ref {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  background: #1c1a16;
+  color: #f4f1eb;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0.8;
+  transition: opacity 0.1s;
+}
+
+.clear-ref:hover { opacity: 1; }
+
+/* ── Right panel ── */
+.panel-right {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  height: 100vh;
+  overflow: hidden;
+  background: #f0ede6;
+}
+
+.result-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.result-media {
+  max-width: 100%;
+  max-height: 100vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
   animation: rise 0.35s ease;
 }
 
-@keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.output img,
-.output video {
-  width: 100%;
-  display: block;
-  border: 1px solid #ccc8bf;
-}
-
-.output a {
-  font-size: 0.75rem;
+.open-link {
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  font-size: 0.72rem;
   color: #7a7670;
   text-decoration: none;
   letter-spacing: 0.03em;
   transition: color 0.1s;
 }
 
-.output a:hover {
-  color: #1c1a16;
-}
+.open-link:hover { color: #1c1a16; }
 
-.output.raw {
-  margin-top: 44px;
-  font-size: 0.78rem;
+.raw-result {
+  font-size: 0.75rem;
   color: #7a7670;
-  border-top: 1px solid #ccc8bf;
-  padding-top: 18px;
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.65;
+  padding: 32px;
+  overflow-y: auto;
+  max-height: 100vh;
+  width: 100%;
   animation: rise 0.35s ease;
+}
+
+.empty-hint {
+  font-size: 1.5rem;
+  color: #ccc8bf;
+  user-select: none;
+}
+
+/* ── History strip ── */
+.history-strip {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid #ccc8bf;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  background: #eceae3;
+  scrollbar-width: thin;
+  scrollbar-color: #ccc8bf transparent;
+}
+
+.history-thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border: 1px solid #ccc8bf;
+  cursor: pointer;
+  background: #e0ddd6;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  transition: border-color 0.12s;
+}
+
+.history-thumb:hover { border-color: #1c1a16; }
+
+.history-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.history-model {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(28, 26, 22, 0.65);
+  color: #f4f1eb;
+  font-size: 0.48rem;
+  letter-spacing: 0.04em;
+  padding: 2px 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 </style>
