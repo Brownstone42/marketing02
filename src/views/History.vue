@@ -51,6 +51,36 @@ async function deleteEntry() {
   noteDraft.value = next?.note || ''
 }
 
+async function download() {
+  if (!selected.value?.result_url) return
+  const url = selected.value.result_url
+  const res = await fetch(url)
+  const blob = await res.blob()
+  const ext = url.split('.').pop().split('?')[0] || (isVideo(selected.value) ? 'mp4' : 'png')
+  const filename = `result-${selected.value.id}.${ext}`
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'Media file', accept: { [blob.type]: [`.${ext}`] } }],
+      })
+      const writable = await handle.createWritable()
+      await writable.write(blob)
+      await writable.close()
+      return
+    } catch (e) {
+      if (e.name === 'AbortError') return
+    }
+  }
+
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 async function saveNote() {
   if (!selected.value) return
   saving.value = true
@@ -109,6 +139,8 @@ const isVideo = (entry) =>
             <span class="meta">{{ selected.model }}</span>
             <span class="meta" v-if="selected.aspect_ratio">{{ selected.aspect_ratio }}</span>
             <span class="meta">{{ formatDate(selected.timestamp) }}</span>
+            <button type="button" class="action-btn" @click="download">download ↓</button>
+            <a :href="selected.result_url" target="_blank" rel="noopener" class="action-btn">open ↗</a>
           </div>
 
           <div class="field">
@@ -277,6 +309,23 @@ main {
   letter-spacing: 0.1em;
   color: #7a7670;
 }
+
+.action-btn {
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: #7a7670;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.1s;
+  margin-left: auto;
+}
+
+.action-btn + .action-btn { margin-left: 12px; }
+.action-btn:hover { color: #1c1a16; }
 
 .field {
   display: flex;
