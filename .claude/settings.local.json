@@ -17,10 +17,16 @@
       "PowerShell(Start-Process -FilePath \"node\" -ArgumentList \"server.js\" -WorkingDirectory \"C:\\\\Storage\\\\Antigravity\\\\appx\\\\marketing02\" -WindowStyle Hidden)",
       "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000/health\" -Method GET -UseBasicParsing)",
       "PowerShell(Start-Sleep -Seconds 2; try { Invoke-WebRequest -Uri \"http://localhost:3000/health\" -Method GET -UseBasicParsing | Select-Object StatusCode, Content } catch { $_.Exception.Message })",
-      "PowerShell($result = Invoke-WebRequest -Uri \"http://localhost:3000/health\" -UseBasicParsing 2>&1; Write-Host \"Status: $\\($result.StatusCode\\)\"; Write-Host \"Body: $\\($result.Content\\)\")"
+      "PowerShell($result = Invoke-WebRequest -Uri \"http://localhost:3000/health\" -UseBasicParsing 2>&1; Write-Host \"Status: $\\($result.StatusCode\\)\"; Write-Host \"Body: $\\($result.Content\\)\")",
+      "WebSearch",
+      "PowerShell(Start-Process -FilePath \"cmd\" -ArgumentList \"/c\", \"cd /d C:\\\\Storage\\\\Antigravity\\\\appx\\\\marketing02 && npm run dev > dev-server.log 2>&1\" -WindowStyle Hidden)",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:5174\" -UseBasicParsing; Write-Host \"Status: $\\($r.StatusCode\\)\"; Write-Host \\($r.Content | Select-String \"app\" | Select-Object -First 3\\))",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")"
     ]
   },
   "enabledPlugins": {
-    "skill-creator@claude-plugins-official": true
+    "skill-creator@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true
   }
 }
