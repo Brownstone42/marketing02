@@ -12,7 +12,12 @@
       "PowerShell(npx skills add higgsfield-ai/skills 2>&1)",
       "PowerShell(higgsfield *)",
       "Bash(higgsfield generate *)",
-      "Bash(hf generate *)"
+      "Bash(hf generate *)",
+      "PowerShell(cmd /c \"dir /a \"\"C:\\\\Storage\\\\Antigravity\\\\appx\\\\marketing02\"\"\")",
+      "PowerShell(Start-Process -FilePath \"node\" -ArgumentList \"server.js\" -WorkingDirectory \"C:\\\\Storage\\\\Antigravity\\\\appx\\\\marketing02\" -WindowStyle Hidden)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000/health\" -Method GET -UseBasicParsing)",
+      "PowerShell(Start-Sleep -Seconds 2; try { Invoke-WebRequest -Uri \"http://localhost:3000/health\" -Method GET -UseBasicParsing | Select-Object StatusCode, Content } catch { $_.Exception.Message })",
+      "PowerShell($result = Invoke-WebRequest -Uri \"http://localhost:3000/health\" -UseBasicParsing 2>&1; Write-Host \"Status: $\\($result.StatusCode\\)\"; Write-Host \"Body: $\\($result.Content\\)\")"
     ]
   },
   "enabledPlugins": {
