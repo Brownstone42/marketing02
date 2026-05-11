@@ -131,6 +131,53 @@ app.post('/api/marketing-studio', upload.single('product_image'), async (req, re
   }
 })
 
+// POST /api/combine — multipart/form-data
+// Fields: prompt, model, aspect_ratio
+// Files:  image1, image2 (both required)
+app.post('/api/combine', upload.fields([{ name: 'image1', maxCount: 1 }, { name: 'image2', maxCount: 1 }]), async (req, res) => {
+  const { prompt, model = 'flux_kontext', aspect_ratio = '1:1' } = req.body
+  const image1 = req.files?.image1?.[0]
+  const image2 = req.files?.image2?.[0]
+
+  if (!prompt?.trim()) return res.status(400).json({ error: 'prompt is required' })
+  if (!image1 || !image2) return res.status(400).json({ error: 'both images are required' })
+
+  try {
+    const { stdout } = await execFileAsync('hf', [
+      'generate', 'create', model,
+      '--prompt', prompt.trim(),
+      '--aspect_ratio', aspect_ratio,
+      '--image', image1.path,
+      '--image', image2.path,
+      '--wait', '--json',
+    ], { timeout: 180_000 })
+
+    const text = stdout.trim()
+    let parsed
+    try { parsed = JSON.parse(text) } catch { parsed = text }
+    const result = parsed
+    const entry = result?.[0] ?? result
+    if (entry?.result_url) {
+      await appendHistory({
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        prompt: prompt.trim(),
+        model,
+        aspect_ratio,
+        result_url: entry.result_url,
+      }).catch(() => {})
+    }
+    res.json({ result })
+  } catch (err) {
+    const detail = [err.stderr, err.stdout, err.message].filter(Boolean).join('\n').trim()
+    console.error('[combine error]', detail)
+    res.status(500).json({ error: detail })
+  } finally {
+    if (image1) await unlink(image1.path).catch(() => {})
+    if (image2) await unlink(image2.path).catch(() => {})
+  }
+})
+
 // POST /api/generate — multipart/form-data
 // Fields: prompt (required), model, aspect_ratio, resolution, duration
 // File:   image (optional reference image)

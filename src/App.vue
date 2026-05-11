@@ -4,6 +4,7 @@
       <span class="brand">hf</span>
       <div class="links">
         <RouterLink to="/">generate</RouterLink>
+        <RouterLink to="/combine">combine</RouterLink>
         <RouterLink to="/studio">studio</RouterLink>
         <RouterLink to="/history">history</RouterLink>
       </div>
