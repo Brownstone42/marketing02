@@ -103,8 +103,8 @@ app.post('/api/marketing-studio', upload.single('product_image'), async (req, re
       '--duration', String(duration),
       '--image', uploadData.id,
       '--avatars', JSON.stringify([{ id: avatar_id, type: avatar_type }]),
-      '--wait', '--json',
-    ], { timeout: 300_000 })
+      '--wait', '--wait-timeout', '25m', '--json',
+    ], { timeout: 1_560_000 })
 
     const text = stdout.trim()
     let parsed
@@ -123,7 +123,9 @@ app.post('/api/marketing-studio', upload.single('product_image'), async (req, re
     }
     res.json({ result })
   } catch (err) {
-    res.status(500).json({ error: err.stderr || err.message })
+    const detail = [err.stderr, err.stdout, err.message].filter(Boolean).join('\n').trim()
+    console.error('[marketing-studio error]', detail)
+    res.status(500).json({ error: detail })
   } finally {
     if (productFile) await unlink(productFile.path).catch(() => {})
   }
