@@ -20,13 +20,30 @@ hf generate list --json     # list past jobs
 
 `hf auth login` is interactive — must be run by the user, not spawned from code.
 
+## Correct model IDs (verified via hf model list)
+
+| Display Name | job_set_type | Type |
+|---|---|---|
+| Nano Banana Pro | `nano_banana_2` | image |
+| Nano Banana 2 | `nano_banana_flash` | image |
+| Flux Kontext | `flux_kontext` | image |
+| FLUX.2 | `flux_2` | image |
+| Kling O1 Image | `kling_omni_image` | image |
+| GPT Image 2 | `gpt_image_2` | image |
+| Kling v3.0 | `kling3_0` | video |
+| Kling 2.6 | `kling2_6` | video |
+| Marketing Studio Video | `marketing_studio_video` | video |
+| Seedance 2.0 | `seedance_2_0` | video |
+
+**Note:** `nano_banana_pro` does not exist — `nano_banana_2` IS the Pro model. `kling3_0` is video only.
+
 ## Model defaults for marketing
 
 **Testing/budget phase — use these until further notice:**
 
 | Task | Model | Note |
 |---|---|---|
-| Product shots, banners, text-on-image | `nano_banana_2` | cheaper than `gpt_image_2`; step up to `nano_banana_pro` for hard cases |
+| Character/portrait image | `nano_banana_2` | Nano Banana Pro — best for reference-based character work |
 | General video | `kling3_0` | budget alternative; avoid `seedance_2_0` — too expensive for testing |
 | Branded ad video with avatar + product | `marketing_studio_video` | unchanged |
 

@@ -30,7 +30,8 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(npm uninstall *)",
-      "Bash(rm -f .env)"
+      "Bash(rm -f .env)",
+      "Bash(hf model *)"
     ]
   },
   "enabledPlugins": {

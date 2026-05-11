@@ -13,7 +13,7 @@ const isDragOver = ref(false)
 const fileInput = ref(null)
 const history = ref([])
 
-const IMAGE_MODELS = ['nano_banana_2', 'nano_banana_pro']
+const IMAGE_MODELS = ['nano_banana_2', 'nano_banana_flash', 'kling_omni_image']
 const isImageModel = computed(() => IMAGE_MODELS.includes(model.value))
 
 async function loadHistory() {
@@ -162,9 +162,15 @@ const rawResult = computed(() =>
           <div class="field">
             <label for="model">MODEL</label>
             <select id="model" v-model="model" :disabled="loading">
-              <option value="nano_banana_2">nano_banana_2</option>
-              <option value="nano_banana_pro">nano_banana_pro</option>
-              <option value="kling3_0">kling3_0</option>
+              <optgroup label="image">
+                <option value="nano_banana_2">Nano Banana Pro</option>
+                <option value="nano_banana_flash">Nano Banana 2</option>
+                <option value="kling_omni_image">Kling O1 Image</option>
+              </optgroup>
+              <optgroup label="video">
+                <option value="kling3_0">Kling v3.0</option>
+                <option value="kling2_6">Kling 2.6</option>
+              </optgroup>
             </select>
           </div>
           <div v-if="isImageModel" class="field">
