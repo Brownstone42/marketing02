@@ -68,6 +68,67 @@ app.patch('/api/history/:id', express.json(), async (req, res) => {
   res.json(entry)
 })
 
+// GET /api/studio/avatars — list available avatars
+app.get('/api/studio/avatars', async (req, res) => {
+  try {
+    const { stdout } = await execFileAsync('hf', ['marketing-studio', 'avatars', 'list', '--json'])
+    res.json(JSON.parse(stdout.trim()))
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/marketing-studio — multipart/form-data
+// Fields: prompt, mode, aspect_ratio, duration, avatar_id, avatar_type
+// Files:  product_image (required)
+app.post('/api/marketing-studio', upload.single('product_image'), async (req, res) => {
+  const { prompt, mode = 'ugc', aspect_ratio = '16:9', duration = '10', avatar_id, avatar_type = 'preset' } = req.body
+  const productFile = req.file
+
+  if (!prompt?.trim()) return res.status(400).json({ error: 'prompt is required' })
+  if (!productFile) return res.status(400).json({ error: 'product image is required' })
+  if (!avatar_id) return res.status(400).json({ error: 'avatar is required' })
+
+  try {
+    // 1. Upload product image → pass as --image reference
+    const { stdout: uploadOut } = await execFileAsync('hf', ['upload', 'create', productFile.path, '--json'])
+    const uploadData = JSON.parse(uploadOut.trim())
+
+    // 2. Generate video
+    const { stdout } = await execFileAsync('hf', [
+      'generate', 'create', 'marketing_studio_video',
+      '--prompt', prompt.trim(),
+      '--mode', mode,
+      '--aspect_ratio', aspect_ratio,
+      '--duration', String(duration),
+      '--image', uploadData.id,
+      '--avatars', JSON.stringify([{ id: avatar_id, type: avatar_type }]),
+      '--wait', '--json',
+    ], { timeout: 300_000 })
+
+    const text = stdout.trim()
+    let parsed
+    try { parsed = JSON.parse(text) } catch { parsed = text }
+    const result = parsed
+    const entry = result?.[0] ?? result
+    if (entry?.result_url) {
+      await appendHistory({
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        prompt: prompt.trim(),
+        model: 'marketing_studio_video',
+        aspect_ratio,
+        result_url: entry.result_url,
+      }).catch(() => {})
+    }
+    res.json({ result })
+  } catch (err) {
+    res.status(500).json({ error: err.stderr || err.message })
+  } finally {
+    if (productFile) await unlink(productFile.path).catch(() => {})
+  }
+})
+
 // POST /api/generate — multipart/form-data
 // Fields: prompt (required), model, aspect_ratio, resolution, duration
 // File:   image (optional reference image)
