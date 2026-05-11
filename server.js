@@ -1,5 +1,3 @@
-import 'dotenv/config'
-import Anthropic from '@anthropic-ai/sdk'
 import express from 'express'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -8,7 +6,6 @@ import { extname, resolve } from 'path'
 import { tmpdir } from 'os'
 import multer from 'multer'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const HISTORY_FILE = resolve('./history.json')
 
 async function readHistory() {
@@ -69,44 +66,6 @@ app.patch('/api/history/:id', express.json(), async (req, res) => {
   if (note !== undefined) entry.note = note
   await writeFile(HISTORY_FILE, JSON.stringify(history, null, 2))
   res.json(entry)
-})
-
-app.post('/api/improve-prompt', express.json(), async (req, res) => {
-  const { prompt, model } = req.body
-  if (!prompt?.trim()) return res.status(400).json({ error: 'prompt is required' })
-  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set' })
-
-  const history = await readHistory()
-  const rated = history.filter((e) => e.rating !== 0).slice(0, 30)
-
-  const goodExamples = rated
-    .filter((e) => e.rating === 1)
-    .map((e) => `PROMPT: ${e.prompt}${e.note ? `\nNOTE: ${e.note}` : ''}`)
-    .join('\n\n')
-
-  const badExamples = rated
-    .filter((e) => e.rating === -1)
-    .map((e) => `PROMPT: ${e.prompt}${e.note ? `\nNOTE: ${e.note}` : ''}`)
-    .join('\n\n')
-
-  const contextParts = []
-  if (goodExamples) contextParts.push(`PROMPTS THAT WORKED WELL:\n${goodExamples}`)
-  if (badExamples) contextParts.push(`PROMPTS THAT DID NOT WORK:\n${badExamples}`)
-  const context = contextParts.length ? contextParts.join('\n\n') + '\n\n' : ''
-
-  const userMessage = `${context}CURRENT DRAFT PROMPT (model: ${model || 'nano_banana_2'}):\n${prompt.trim()}\n\nSuggest an improved version of this prompt. Return only the improved prompt text, nothing else.`
-
-  try {
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
-      system: 'You are an expert at writing prompts for Higgsfield AI image and video generation. You study what has worked and what has not, and write concise, specific, effective prompts. Never add explanation or preamble — return only the prompt text itself.',
-      messages: [{ role: 'user', content: userMessage }],
-    })
-    res.json({ improved: message.content[0].text.trim() })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
 })
 
 // POST /api/generate — multipart/form-data

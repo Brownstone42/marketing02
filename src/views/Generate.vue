@@ -15,28 +15,6 @@ const history = ref([])
 
 const IMAGE_MODELS = ['nano_banana_2', 'nano_banana_pro']
 const isImageModel = computed(() => IMAGE_MODELS.includes(model.value))
-const improving = ref(false)
-const improveError = ref(null)
-
-async function improvePrompt() {
-  if (!prompt.value.trim() || improving.value) return
-  improving.value = true
-  improveError.value = null
-  try {
-    const res = await fetch('/api/improve-prompt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt.value.trim(), model: model.value }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Failed to improve prompt')
-    prompt.value = data.improved
-  } catch (e) {
-    improveError.value = e.message
-  } finally {
-    improving.value = false
-  }
-}
 
 async function loadHistory() {
   try {
@@ -154,22 +132,13 @@ const rawResult = computed(() =>
     <div class="panel-left">
       <form @submit.prevent="generate">
         <div class="field grow">
-          <div class="prompt-header">
-            <label for="prompt">PROMPT</label>
-            <button
-              type="button"
-              class="improve-btn"
-              :disabled="!prompt.trim() || improving || loading"
-              @click="improvePrompt"
-            >{{ improving ? 'improving…' : 'improve →' }}</button>
-          </div>
+          <label for="prompt">PROMPT</label>
           <textarea
             id="prompt"
             v-model="prompt"
             placeholder="describe what to generate"
-            :disabled="loading || improving"
+            :disabled="loading"
           />
-          <span v-if="improveError" class="improve-error">! {{ improveError }}</span>
         </div>
 
         <div class="field">
@@ -293,33 +262,6 @@ label {
   flex-shrink: 0;
 }
 
-.prompt-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-
-.improve-btn {
-  font-family: 'Courier Prime', 'Courier New', monospace;
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
-  background: transparent;
-  color: #7a7670;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.1s;
-}
-
-.improve-btn:hover:not(:disabled) { color: #1c1a16; }
-.improve-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.improve-error {
-  font-size: 0.7rem;
-  color: #c0392b;
-  flex-shrink: 0;
-}
 
 textarea {
   font-family: 'Courier Prime', 'Courier New', monospace;
