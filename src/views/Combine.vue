@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 
 const prompt = ref('')
 const model = ref('flux_kontext')
-const aspectRatio = ref('1:1')
+const aspectRatio = ref('9:16')
 const loading = ref(false)
 const result = ref(null)
 const error = ref(null)

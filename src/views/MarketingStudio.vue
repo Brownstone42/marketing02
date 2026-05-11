@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 
 const prompt = ref('')
 const mode = ref('ugc')
-const aspectRatio = ref('16:9')
+const aspectRatio = ref('9:16')
 const duration = ref(10)
 const loading = ref(false)
 const result = ref(null)
