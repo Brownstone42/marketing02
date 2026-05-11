@@ -79,6 +79,35 @@ async function generate() {
   }
 }
 
+async function download() {
+  if (!resultUrl.value) return
+  const res = await fetch(resultUrl.value)
+  const blob = await res.blob()
+  const ext = resultUrl.value.split('.').pop().split('?')[0] || (isVideo.value ? 'mp4' : 'png')
+  const filename = `result-${Date.now()}.${ext}`
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'Media file', accept: { [blob.type]: [`.${ext}`] } }],
+      })
+      const writable = await handle.createWritable()
+      await writable.write(blob)
+      await writable.close()
+      return
+    } catch (e) {
+      if (e.name === 'AbortError') return
+    }
+  }
+
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 function extractUrl(r) {
   if (typeof r === 'string' && r.startsWith('http')) return r
   if (Array.isArray(r)) return extractUrl(r[0])
@@ -167,7 +196,10 @@ const rawResult = computed(() =>
         <template v-if="resultUrl">
           <video v-if="isVideo" :src="resultUrl" controls class="result-media" />
           <img v-else :src="resultUrl" alt="result" class="result-media" />
-          <a :href="resultUrl" target="_blank" rel="noopener" class="open-link">open full size ↗</a>
+          <div class="result-actions">
+            <button type="button" class="action-btn" @click="download">download ↓</button>
+            <a :href="resultUrl" target="_blank" rel="noopener" class="action-btn">open ↗</a>
+          </div>
         </template>
         <pre v-else-if="rawResult" class="raw-result">{{ rawResult }}</pre>
         <span v-else class="empty-hint">{{ loading ? '' : '—' }}</span>
@@ -439,18 +471,29 @@ button[type="submit"]:hover:not(:disabled) .arrow { transform: translateX(4px); 
   animation: rise 0.35s ease;
 }
 
-.open-link {
+.result-actions {
   position: absolute;
   bottom: 16px;
   right: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.action-btn {
+  font-family: 'Courier Prime', 'Courier New', monospace;
   font-size: 0.72rem;
   color: #7a7670;
   text-decoration: none;
   letter-spacing: 0.03em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
   transition: color 0.1s;
 }
 
-.open-link:hover { color: #1c1a16; }
+.action-btn:hover { color: #1c1a16; }
 
 .raw-result {
   font-size: 0.75rem;
